@@ -1,139 +1,119 @@
-# Krina Patel, Aditya Vikrant
-# ML2 Final Project Bayesian Modeling- Framingham Heart Disease Dataset
+## Krina Patel, Aditya Vikrant
+## ML2 Final Project - Heart Disease Prediction using Bayesian Modeling
 
-# Load necessary libraries
+# Load libraries
 library(tidyverse)
-library(mvnfast)
+library(brms)
+library(bayesplot)
+library(GGally)
+set.seed(42)
 
-# Load dataset
+# Load and clean dataset
 df <- read_csv("/Users/krinapatel/Desktop/northeastern/Year_4/ML2/Project/ml2_final_project/Framingham Dataset.csv")
 
-# Drop columns with >50% missing
-missing_percent <- colSums(is.na(df)) / nrow(df) * 100
+# Remove columns with >50% missing values
+missing_percent <- colMeans(is.na(df)) * 100
 cols_to_drop <- names(missing_percent[missing_percent > 50])
 df <- df %>% select(-all_of(cols_to_drop))
 
-# Replace NA in numeric columns with median
-num_cols <- c("TOTCHOL", "GLUCOSE", "BMI")
-df <- df %>%
-  mutate(across(all_of(num_cols), ~replace_na(., median(., na.rm = TRUE))))
+# Impute missing values
+numeric_vars_to_impute <- c("TOTCHOL", "GLUCOSE", "BMI")
+df <- df %>% mutate(across(all_of(numeric_vars_to_impute), ~ ifelse(is.na(.), median(., na.rm = TRUE), .)))
 
-# Replace NA in categorical columns with mode
-cat_cols <- c("BPMEDS")
-df <- df %>%
-  mutate(across(all_of(cat_cols), ~replace_na(., as.numeric(names(sort(table(.), decreasing = TRUE)[1])))))
-
-# Modify CIGPDAY
-df <- df %>%
-  mutate(CIGPDAY = case_when(
-    is.na(CIGPDAY) & CURSMOKE == 0 ~ 0,
-    TRUE ~ CIGPDAY
-  ))
-df$CIGPDAY[is.na(df$CIGPDAY)] <- median(df$CIGPDAY, na.rm = TRUE)
-
-# Drop 'educ' and rows missing 'HEARTRTE'
-df <- df %>%
-  select(-educ) %>%
-  filter(!is.na(HEARTRTE))
-
-# Drop leakage columns EXCEPT ANYCHD
-drop_leakage_cols <- c('RANDID', 'TIME', 'PERIOD', 'DEATH', 'STROKE', 'CVD', 'HYPERTEN', 'MI_FCHD',
-                       'HOSPMI', 'ANGINA', 'TIMEAP', 'TIMEMI', 'TIMEMIFC', 'TIMECHD', 'TIMESTRK',
-                       'TIMECVD', 'TIMEDTH', 'TIMEHYP')
-df <- df %>% select(-all_of(drop_leakage_cols))  # KEEP ANYCHD!
-
-# Set up binary target and features
-y <- df$ANYCHD
-X <- cbind(
-  intercept = 1,
-  AGE = scale(df$AGE),
-  SEX = df$SEX,
-  TOTCHOL = scale(df$TOTCHOL),
-  GLUCOSE = scale(df$GLUCOSE),
-  DIABP = scale(df$DIABP),
-  CURSMOKE = df$CURSMOKE,
-  CIGPDAY = scale(df$CIGPDAY),
-  BPMEDS = df$BPMEDS,
-  BMI = scale(df$BMI),
-  HEARTRTE = scale(df$HEARTRTE)
+df <- df %>% mutate(
+  BPMEDS = ifelse(is.na(BPMEDS), as.numeric(names(sort(table(BPMEDS), decreasing = TRUE)[1])), BPMEDS),
+  CIGPDAY = ifelse(is.na(CIGPDAY) & CURSMOKE == 0, 0, CIGPDAY),
+  CIGPDAY = ifelse(is.na(CIGPDAY), median(CIGPDAY, na.rm = TRUE), CIGPDAY)
 )
 
-# Approximate Bayesian logistic regression using a pseudo-likelihood (linear approximation)
-# Treat binary y as "noisy continuous" outcome for now (probit-like)
-n <- nrow(X)
-p <- ncol(X)
+# Drop rows with NA in HEARTRTE and remove 'educ'
+df <- df %>% drop_na(HEARTRTE) %>% select(-educ)
 
-# OLS estimate
-w_hat <- solve(t(X) %*% X) %*% t(X) %*% y
-resid <- y - X %*% w_hat
-s2 <- as.numeric(t(resid) %*% resid / (n - p))
+# Drop known leakage variables (except ANYCHD)
+drop_cols <- c('RANDID', 'TIME', 'PERIOD', 'DEATH', 'STROKE', 'CVD', 'HYPERTEN',
+               'MI_FCHD', 'HOSPMI', 'ANGINA', 'TIMEAP', 'TIMEMI', 'TIMEMIFC',
+               'TIMECHD', 'TIMESTRK', 'TIMECVD', 'TIMEDTH', 'TIMEHYP')
+df <- df %>% select(-any_of(drop_cols))
 
-# Posterior sampling
-rinvchisq <- function(n, df, scale) {
-  (df * scale) / rchisq(n, df)
-}
-sigma2_tilde <- rinvchisq(1000, df = n - p, scale = s2)
+# Define priors
+priors <- default_prior(
+  ANYCHD ~ AGE + SEX + TOTCHOL + GLUCOSE + DIABP + CURSMOKE + CIGPDAY + BPMEDS + BMI + HEARTRTE,
+  data = df,
+  family = bernoulli()
+)
 
-w_tilde <- matrix(0, nrow = 1000, ncol = p)
-XtX_inv <- solve(t(X) %*% X)
-for (i in 1:1000) {
-  w_tilde[i, ] <- rmvn(1, mu = w_hat, sigma = XtX_inv * sigma2_tilde[i])
-}
+# Fit Bayesian Logistic Regression Model
+heart_model <- brm(
+  formula = ANYCHD ~ AGE + SEX + TOTCHOL + GLUCOSE + DIABP + CURSMOKE + 
+    CIGPDAY + BPMEDS + BMI + HEARTRTE,
+  data = df,
+  family = bernoulli(link = "logit"),
+  prior = priors,
+  chains = 4,
+  iter = 1000,
+  warmup = 180
+)
 
-# Show 3 histograms at a time
-par(mfrow = c(1, 3))  # 1 row, 3 columns
+# Model Diagnostics
+summary(heart_model)
+plot(heart_model)
+pp_check(heart_model)
+bayes_R2(heart_model)
 
-# First batch
-hist(w_tilde[, 1], main = "Posterior of Intercept", xlab = "Intercept")
-hist(w_tilde[, 2], main = "Posterior of AGE", xlab = "AGE")
-hist(w_tilde[, 3], main = "Posterior of SEX", xlab = "SEX")
+# Prediction for All Observations
+probs <- posterior_linpred(heart_model, transform = TRUE)
+mean_probs <- colMeans(probs)
+y_pred <- ifelse(mean_probs > 0.5, 1, 0)
+y_true <- df$ANYCHD
 
-# Next batch
-par(mfrow = c(1, 3))
-hist(w_tilde[, 4], main = "Posterior of TOTCHOL", xlab = "TOTCHOL")
-hist(w_tilde[, 5], main = "Posterior of GLUCOSE", xlab = "GLUCOSE")
-hist(w_tilde[, 6], main = "Posterior of DIABP", xlab = "DIABP")
 
-# Next batch
-par(mfrow = c(1, 3))
-hist(w_tilde[, 7], main = "Posterior of CURSMOKE", xlab = "CURSMOKE")
-hist(w_tilde[, 8], main = "Posterior of CIGPDAY", xlab = "CIGPDAY")
-hist(w_tilde[, 9], main = "Posterior of BPMEDS", xlab = "BPMEDS")
+# Confusion Matrix & Performance Metrics
+conf_matrix <- table(Predicted = y_pred, Actual = y_true)
+TP <- conf_matrix["1", "1"]
+TN <- conf_matrix["0", "0"]
+FP <- conf_matrix["1", "0"]
+FN <- conf_matrix["0", "1"]
 
-# Last batch (2 plots)
-par(mfrow = c(1, 2))
-hist(w_tilde[, 10], main = "Posterior of BMI", xlab = "BMI")
-hist(w_tilde[, 11], main = "Posterior of HEARTRTE", xlab = "HEARTRTE")
+precision <- TP / (TP + FP)
+recall <- TP / (TP + FN)
+f1 <- 2 * (precision * recall) / (precision + recall)
+accuracy <- mean(y_pred == y_true)
 
-# Reset to single plot
-par(mfrow = c(1, 1))
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Precision:", round(precision, 3), "\n")
+cat("Recall:", round(recall, 3), "\n")
+cat("F1 Score:", round(f1, 3), "\n")
 
-# Patient 1
+# Prediction for Specific Patients (1 & 2) 
+posterior_preds <- posterior_predict(heart_model, newdata = df[1:2, ])
+posterior_probs <- colMeans(posterior_preds)
 
-# Posterior predictive
-hist(y_post_pred, main = "Posterior Predictive Prob for Patient 1", xlab = "P(ANYCHD = 1)")
+cat("Patient 1 P(ANYCHD = 1):", round(posterior_probs[1], 3), "\n")
+cat("Patient 2 P(ANYCHD = 1):", round(posterior_probs[2], 3), "\n")
 
-# Predictive distribution for Patient 1
-x0 <- X[1, ]
-y_post_pred <- numeric(1000)
-for (i in 1:1000) {
-  mu <- t(w_tilde[i, ]) %*% x0
-  y_post_pred[i] <- 1 / (1 + exp(-mu))  # apply logistic function manually
-}
+# Use posterior_linpred to get predicted probabilities (smooth)
+linpred_probs <- posterior_linpred(heart_model, newdata = df[1:2, ], transform = TRUE)
 
-cat("Posterior mean probability of heart disease for Patient 1:", round(mean(y_post_pred), 3), "\n")
+# For Patient 1
+dens1 <- density(linpred_probs[, 1])
+plot(dens1,
+     main = "Posterior Probability: Patient 1",
+     xlab = "P(ANYCHD = 1)",
+     col = "blue", lwd = 2,
+     ylim = c(0, max(dens1$y) * 1.1))  # Add some headroom
+polygon(dens1, col = rgb(0, 0, 1, 0.3), border = NA)
 
-# Patient 2
 
-# Posterior predictive
-hist(y_post_pred, main = "Posterior Predictive Prob for Patient 2", xlab = "P(ANYCHD = 2)")
+# For Patient 2
+dens2 <- density(linpred_probs[, 2])
+plot(dens2,
+     main = "Posterior Probability: Patient 2",
+     xlab = "P(ANYCHD = 1)",
+     col = "red", lwd = 2,
+     ylim = c(0, max(dens2$y) * 1.1))
+polygon(dens2, col = rgb(1, 0, 0, 0.3), border = NA)
 
-# Predictive distribution for Patient 2
-x0 <- X[2, ]
-y_post_pred <- numeric(1000)
-for (i in 1:1000) {
-  mu <- t(w_tilde[i, ]) %*% x0
-  y_post_pred[i] <- 1 / (1 + exp(-mu))  # apply logistic function manually
-}
 
-cat("Posterior mean probability of heart disease for Patient 2:", round(mean(y_post_pred), 3), "\n")
+# Save Model for Shiny App
+saveRDS(heart_model, "heart_model.rds")
+saveRDS(df, "framingham_cleaned.rds")
