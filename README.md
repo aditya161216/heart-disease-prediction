@@ -67,10 +67,14 @@ https://krinapatel.shinyapps.io/ml2_final_project-main.
 - Incorporate SHAP/LIME for MLP interpretability
 - Explore hierarchical Bayesian models for subgroup analysis
 
+## Full Project Report
+For more information and project context, check out our detailed report!
+https://docs.google.com/document/d/1_X7Wos6iTCGABV19SKGrCSRgiC1-kM_dEVSMDgA02qE/edit?usp=sharing 
+
 ---
 
 ## Contact
 For questions or collaboration:
 - **Krina Patel**: [LinkedIn](https://www.linkedin.com/in/patelkrina100)
-- **Aditya Vikrant**: [LinkedIn](#)
+- **Aditya Vikrant**: [LinkedIn](https://www.linkedin.com/in/adityavikrant/)
 
