@@ -10,7 +10,7 @@ set.seed(42)
 library(gridExtra)
 
 # Load and clean dataset
-df <- read_csv("/Users/krinapatel/Desktop/northeastern/Year_4/ML2/Project/ml2_final_project/Framingham Dataset.csv")
+df <- read_csv("/Users/krinapatel/Desktop/northeastern/Year_4/ML2/Project/ml2_final_project-main/Framingham Dataset.csv")
 
 # Check it out
 head(df)
@@ -92,7 +92,7 @@ continuous_vars <- c("TOTCHOL", "AGE", "SYSBP", "DIABP", "CIGPDAY", "BMI", "HEAR
 
 df$ANYCHD <- factor(df$ANYCHD, levels = c(0, 1), labels = c("No CHD", "CHD"))
 
-# Correct: overlapping histograms
+# Continuous Variables Histograms
 cont_plots <- map(continuous_vars, function(var) {
   ggplot(df, aes_string(x = var, fill = "ANYCHD")) +
     geom_histogram(position = "identity", alpha = 0.5, bins = 30, color = "black") +
@@ -103,7 +103,7 @@ cont_plots <- map(continuous_vars, function(var) {
     scale_fill_manual(values = c("skyblue", "tomato"))
 })
 
-# Show all continuous variable plots in a grid
+# All continuous variable plots in a grid
 gridExtra::grid.arrange(grobs = cont_plots, ncol = 2)
 
 # Fix CHD labels
@@ -248,7 +248,7 @@ posterior_lines <- sapply(rownames(coef_summary), function(feature) {
   }
 })
 
-# Also generate ranked top features that have significant effects
+# Top features that have significant effects
 coef_summary_tbl <- coef_summary %>%
   rownames_to_column("Feature") %>%
   filter(Feature != "Intercept") %>%
@@ -305,7 +305,7 @@ mean_prob <- mean(patient1_probs)
 ci_low <- quantile(patient1_probs, 0.025)
 ci_high <- quantile(patient1_probs, 0.975)
 
-# Plot the probability distribution
+# Plot probability distribution
 ggplot(data.frame(prob = patient1_probs), aes(x = prob)) +
   geom_histogram(bins = 30, fill = "lightblue", color = "white") +
   geom_vline(xintercept = mean_prob, color = "darkblue", size = 1.2) +
@@ -335,7 +335,6 @@ y_pred <- ifelse(y_pred_mean > 0.5, 1, 0)
 
 # Confusion Matrix & Performance Metrics
 conf_matrix <- table(Predicted = y_pred, Actual = df$ANYCHD_raw)
-
 print(conf_matrix)
 
 TP <- conf_matrix["1", "1"]
