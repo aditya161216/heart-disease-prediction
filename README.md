@@ -48,26 +48,9 @@ heart-disease-prediction/
 
 > **Note**: The MLP was implemented from scratch and does **not** use scikit-learn or TensorFlow.
 
-## How to Run app.R
+## Shiny App-- Bayesian Model 
+https://krinapatel.shinyapps.io/ml2_final_project-main. 
 
-### 1. Bayesian Modeling in R
-```r
-# Open R or RStudio and run:
-source("heart_disease_bayesian_modeling.R")
-```
-
-### 2. Shiny App for Risk Prediction
-```r
-# In RStudio:
-shiny::runApp("app.R")
-```
-This will open an interactive browser window to enter user vitals and view posterior CHD risk distributions.
-
-### 3. Multilayer Perceptron in Python
-```bash
-python3 mlp_model.py
-```
-The script will train the model and print out training metrics, accuracy, and warnings regarding class imbalance.
 
 ## Results Summary
 - **Bayesian Model**: Accuracy = 83.6%, Precision = 0.696, Recall = 0.241
