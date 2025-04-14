@@ -75,6 +75,6 @@ https://docs.google.com/document/d/1_X7Wos6iTCGABV19SKGrCSRgiC1-kM_dEVSMDgA02qE/
 
 ## Contact
 For questions or collaboration:
-- **Krina Patel**: [LinkedIn](https://www.linkedin.com/in/patelkrina100)
+- **Krina Patel**: [LinkedIn](https://www.linkedin.com/in/krinapatel1/)
 - **Aditya Vikrant**: [LinkedIn](https://www.linkedin.com/in/adityavikrant/)
 
