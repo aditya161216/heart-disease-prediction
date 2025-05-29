@@ -1,5 +1,3 @@
-# ml2_final_project
-
 # 🫀 Heart Disease Risk Prediction Using Bayesian Modeling & MLP
 
 This project applies two machine learning approaches—Bayesian logistic regression and a Multilayer Perceptron (MLP)—to predict the likelihood of coronary heart disease (CHD) using data from the Framingham Heart Study.
